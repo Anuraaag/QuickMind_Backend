@@ -9,18 +9,6 @@ const generateResponse = require("../helpers/response");
 
 const JWT_SECRET = `${process.env.JWT_SECRET}`;
 
-// const generateResponse = (success, message = "", data = [], error = []) => {
-//     const response = {
-//         'success': success,
-//         'payload': {
-//             'message': message,
-//             'data': data,
-//             'error': error
-//         }
-//     }
-//     return response;
-// }
-
 /** Creating a new user - /api/auth/create-user 
  * first argument has the path,
  * second arg contains the rules, 
@@ -29,7 +17,7 @@ const JWT_SECRET = `${process.env.JWT_SECRET}`;
 router.post('/create-user', [
     body('name', 'Enter a valid name').isLength({ min: 2 }).isLength({ max: 192 }),
     body('email', 'Enter a valid email').isEmail().isLength({ max: 256 }),
-    body('password', 'Password must be at least 5 characters').isLength({ min: 5 }).isLength({ max: 127 })
+    body('password', 'Password must be at least 5 characters').isLength({ min: 4 }).isLength({ max: 127 })
 ], async (req, res) => {
     try {
         //Checking for errors based on aforementioned rules
@@ -60,7 +48,12 @@ router.post('/create-user', [
             }
         }
         const jwtToken = jwt.sign(payload, JWT_SECRET);
-        res.json(generateResponse(true, `jwt auth token`, jwtToken, []));
+
+        /** Calculating a date 30 days from now to expire the cookie then */
+        const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+        res.cookie('jwt_token', jwtToken, { httpOnly: true, expires: thirtyDaysFromNow }).json(generateResponse(true, `signed up successfully`, [], []));
+
     } catch (error) {
         console.log(error);
         res.status(500).send(generateResponse(false, `Internal Server Error`, [], []));
@@ -74,7 +67,7 @@ router.post('/create-user', [
 */
 router.post('/log-in', [
     body('email', 'Enter a valid email').isEmail().isLength({ max: 256 }),
-    body('password', 'Password can not be blank').isLength({ min: 5 }).isLength({ max: 127 })
+    body('password', 'Password can not be blank').isLength({ min: 4 }).isLength({ max: 127 })
 ], async (req, res) => {
     try {
         //Checking for error based on aforementioned rules
@@ -102,8 +95,12 @@ router.post('/log-in', [
             }
         };
 
+        /** Calculating a date 30 days from now to expire the cookie then */
+        const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const jwtToken = jwt.sign(payload, JWT_SECRET);
-        res.json(generateResponse(true, `jwt auth token`, jwtToken, []));
+
+        res.cookie('jwt_token', jwtToken, { httpOnly: true, expires: thirtyDaysFromNow }).json(generateResponse(true, `logged in successfully`, [], []));
+
     } catch (error) {
         console.log(error);
         res.status(500).send(generateResponse(false, `Internal Server Error`, [], []));

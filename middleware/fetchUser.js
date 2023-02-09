@@ -5,10 +5,9 @@ const generateResponse = require("../helpers/response");
 const fetchUser = (req, res, next) => {
 
     try {
-        const JWT = req.header('auth-token'); /** fetching jwt from the request header */
+        const JWT = req.cookies.jwt_token; /** fetching jwt from the request header */
 
         if (!JWT) {
-
             res.status(401).send(generateResponse(false, `JWT missing`, [], []));
         }
         else {

@@ -19,6 +19,7 @@
     "dotenv": "^16.0.0",
     "jsonwebtoken": "^8.5.1",
     "xss": "^1.0.14",
-    "express-rate-limit": "^6.7.0"
+    "express-rate-limit": "^6.7.0",
+    "cookie-parser": "1.4.6"
   }
 }
