@@ -52,7 +52,7 @@ router.post('/create-user', [
         /** Calculating a date 30 days from now to expire the cookie then */
         const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-        res.cookie('jwt_token', jwtToken, { httpOnly: true, expires: thirtyDaysFromNow }).json(generateResponse(true, `signed up successfully`, [], []));
+        res.cookie('jwt_token', jwtToken, { httpOnly: true, expires: thirtyDaysFromNow, sameSite: "None", secure: "true" }).json(generateResponse(true, `signed up successfully`, [], []));
 
     } catch (error) {
         console.log(error);
@@ -99,7 +99,7 @@ router.post('/log-in', [
         const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const jwtToken = jwt.sign(payload, JWT_SECRET);
 
-        res.cookie('jwt_token', jwtToken, { httpOnly: true, expires: thirtyDaysFromNow }).json(generateResponse(true, `logged in successfully`, [], []));
+        res.cookie('jwt_token', jwtToken, { httpOnly: true, expires: thirtyDaysFromNow, sameSite: "None", secure: "true" }).json(generateResponse(true, `logged in successfully`, [], []));
 
     } catch (error) {
         console.log(error);
