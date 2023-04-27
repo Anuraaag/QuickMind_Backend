@@ -55,6 +55,8 @@ const UserSchema = new Schema({
     }
 });
 
+// UserSchema.index({ maxTimeMS: 60000 });
+
 const User = mongoose.model("user", UserSchema);
 User.createIndexes();
 module.exports = User;

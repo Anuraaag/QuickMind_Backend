@@ -1,4 +1,6 @@
-const express = require('express');
+const { createUser } = require('./controllers/auth');
+const { makeRequest } = require('./controllers/query');
+const fetchUser = require('./middleware/fetchUser');
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -6,62 +8,80 @@ dotenv.config();
 const connectToMongo = require('./db');
 connectToMongo();
 
-const app = express();
-const port = 5000;
+// const port = 5000;
 
-// const serverless = require('serverless-http'); /** for lambda */
+// const headers = {
+//   "Access-Control-Allow-Methods": "OPTIONS, POST, GET, PUT, DELETE",
+//   "Access-Control-Allow-Credentials": true,
+//   "Access-Control-Allow-Headers": "Content-Type",
+// };
 
-// const cors = require('cors');
-// app.use(cors());
+// const cookieParser = require('cookie-parser');
+// app.use(cookieParser());
+// const cookie = require('cookie');
 
-app.use(function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", req.headers.origin);
-    res.header("Access-Control-Allow-Credentials", true);
-    res.header("Access-Control-Allow-Headers", "Content-Type");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    next();
-});
+module.exports.signupHandler = async (req) => {
 
-const rateLimit = require("express-rate-limit");
-// const ipLimiter = rateLimit({
-//     windowMs: 5 * 1000, /** 5 second window */
-//     max: 1, /** limit each IP to 1 request per windowMs */
-//     message: "Too many requests... ughh give me a break already!",
-//     keyGenerator: function (req) {
-//         return req.ip;
-//     }
-// });
-// const userLimiter = rateLimit({
-//     windowMs: 5 * 1000,
-//     max: 1,
-//     message: "Too many requests... ughh give me a break already!",
-//     keyGenerator: function (req) {
-//         console.log(req.ip);
-//         console.log(req.header('auth-token'));
-//         return req.header('auth-token');
-//     }
-// });
-// app.use('/api', userLimiter);
+  const headers = {
+    "Access-Control-Allow-Methods": "OPTIONS, POST",
+    "Access-Control-Allow-Credentials": true,
+    "Access-Control-Allow-Origin": req.headers["origin"]
+  };
+  // headers["Access-Control-Allow-Origin"] = req.headers["origin"];
 
-// app.use('/api', ipLimiter);
+  // req.cookies = cookie.parse(req.headers.Cookie || '');
+  // console.log("this one here", req);
 
-app.use(express.json());
+  /** Handle preflight request */
+  if (req.httpMethod === "OPTIONS") {
+    return {
+      statusCode: "204",
+      headers,
+      body: JSON.stringify({})
+    };
+  }
 
-const cookieParser = require('cookie-parser');
-app.use(cookieParser());
+  const response = await createUser(req);
+  return response;
+};
 
-app.use('/api/auth', require('./controllers/auth'));
-app.use('/api/query', require('./controllers/query'));
+// module.exports.loginHandler = async (req) => {
+//   // handle the logic for the /login endpoint
+//   const requestBody = JSON.parse(req.body);
+//   // authenticate the user using the request body
+//   return {
+//     statusCode: 200,
+//     body: JSON.stringify({ message: "User logged in successfully" }),
+//   };
+// };
 
-app.listen(process.env.PORT || port, () => {
-    console.log(`Quickmind is all ears!`);
-});
+module.exports.queryHandler = async (req) => {
 
-/** to run in lambda */
-// app.get('/', (req, res) => {
-//     res.send('Hello from Quickmind!');
-// });
+  const headers = {
+    "Access-Control-Allow-Methods": "OPTIONS, POST",
+    "Access-Control-Allow-Credentials": true,
+    "Access-Control-Allow-Origin": req.headers["origin"]
+    // "Access-Control-Allow-Origin": "chrome-extension://akmkcicklllnibehnoeikjfihhlpcoio"
+  };
+  // headers["Access-Control-Allow-Origin"] = req.headers["origin"];
 
-// Define the Lambda handler function
-// module.exports.handler = serverless(app);
-/** to run in lambda */
+  /** Handle preflight request */
+  if (req.httpMethod === "OPTIONS") {
+    // headers["Access-Control-Allow-Headers"] = "Content-Type, qm_Token, Authorization, X-Amz-Date, X-Amz-Security-Token, X-Api-Key";
+    return {
+      statusCode: "204",
+      headers,
+      body: JSON.stringify({})
+    };
+  }
+
+  req.userId = fetchUser(req);
+
+  return makeRequest(req)
+    .then(response => {
+      console.log("bot response here: ", response);
+      return response;
+    })
+    .catch(error => console.log(error))
+
+};

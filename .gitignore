@@ -1,5 +1,10 @@
-.env
+# package directories
 node_modules
-node_modules/*
+jspm_packages
+
+# Serverless directories
+.serverless
+
+.env
 qmb_key
 qmb_key.pub

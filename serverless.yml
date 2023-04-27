@@ -1,0 +1,44 @@
+service: serverless-http-api
+frameworkVersion: '3'
+
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  httpApi:
+    cors:
+      # allowedOrigins:  chrome-extension://akmkcicklllnibehnoeikjfihhlpcoio
+      allowedHeaders:
+        - Content-Type
+        - X-Amz-Date
+        - Authorization
+        - X-Api-Key
+        - X-Amz-Security-Token
+        - X-Amz-User-Agent
+        - qm_Token
+      allowedMethods:
+        - POST
+        - OPTIONS
+      # allowCredentials: true
+
+functions:
+  query:
+    handler: index.queryHandler
+    events:
+      - httpApi:
+          path: /query
+          method: post
+  signup:
+    handler: index.signupHandler
+    events:
+      - httpApi:
+          path: /signup
+          method: post
+  login:
+    handler: index.loginHandler
+    events:
+      - httpApi:
+          path: /login
+          method: post

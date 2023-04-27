@@ -1,23 +1,29 @@
 const jwt = require("jsonwebtoken");
+
+const dotenv = require('dotenv');
+dotenv.config();
+
 const JWT_SECRET = `${process.env.JWT_SECRET}`;
+
 const generateResponse = require("../helpers/response");
 
-const fetchUser = (req, res, next) => {
+const fetchUser = req => {
 
     try {
-        const JWT = req.cookies.jwt_token; /** fetching jwt from the request header */
 
-        if (!JWT) {
-            res.status(401).send(generateResponse(false, `JWT missing`, [], []));
-        }
-        else {
-            const payload = jwt.verify(JWT, JWT_SECRET);
-            req.user = payload.user;
-            next();
-        }
+        console.log("lolwa-", JWT_SECRET);
+        if (req.headers && req.headers.qm_token) {
 
+            const JWT = req.headers.qm_token;
+            if (!JWT) {
+                return generateResponse(false, `JWT missing`, [], []);
+            } else {
+                const payload = jwt.verify(JWT, JWT_SECRET);
+                return payload.user;
+            }
+        }
     } catch (error) {
-        res.status(401).send(generateResponse(false, `JWT missing`, [], []));
+        return generateResponse(false, `JWT missing`, [], []);
     }
 
 }
