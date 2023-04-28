@@ -41,8 +41,12 @@ module.exports.signupHandler = async (req) => {
     };
   }
 
-  const response = await createUser(req);
-  return response;
+  return createUser(req)
+    .then(response => {
+      return response;
+    })
+    .catch(error => console.log(error))
+
 };
 
 // module.exports.loginHandler = async (req) => {
@@ -75,13 +79,15 @@ module.exports.queryHandler = async (req) => {
     };
   }
 
-  req.userId = fetchUser(req);
+  req.user = fetchUser(req);
 
-  return makeRequest(req)
-    .then(response => {
-      console.log("bot response here: ", response);
-      return response;
-    })
-    .catch(error => console.log(error))
+  if (req.user) {
+    return makeRequest(req)
+      .then(response => {
+        return response;
+      })
+      .catch(error => console.log(error))
+  }
+  return generateResponse(false, `JWT missing`, [], []);
 
 };

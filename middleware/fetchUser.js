@@ -10,8 +10,6 @@ const generateResponse = require("../helpers/response");
 const fetchUser = req => {
 
     try {
-
-        console.log("lolwa-", JWT_SECRET);
         if (req.headers && req.headers.qm_token) {
 
             const JWT = req.headers.qm_token;
@@ -22,6 +20,8 @@ const fetchUser = req => {
                 return payload.user;
             }
         }
+        return generateResponse(false, `JWT missing`, [], []);
+
     } catch (error) {
         return generateResponse(false, `JWT missing`, [], []);
     }

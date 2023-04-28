@@ -1,5 +1,6 @@
 
 const User = require('../models/User');
+const { ObjectId } = require('mongodb');
 
 const freeRequestsLimit = 30;
 
@@ -22,12 +23,14 @@ const makeRequest = async (req) => {
     try {
 
         const body = req.body ? JSON.parse(req.body) : null;
-        const userId = req.userId ? req.userId : null;
+        const userId = req.user && req.user.id ? req.user.id : null;
+        const updateQuery = userId ? { _id: new ObjectId(`${userId}`) } : null;
+
+        console.log("myQuery: ", updateQuery);
 
         let queryResponse = ``;
-        let message = ``;
 
-        if (body && userId) {
+        if (body && updateQuery) {
 
             if (body.query) {
                 body.query = xss(body.query);
@@ -39,16 +42,17 @@ const makeRequest = async (req) => {
             }
 
             /** Push the query to the db */
-            return User.findOneAndUpdate(req.user, { $push: { queries: { query: body.query } } }, { new: true })
+            return User.findOneAndUpdate(updateQuery, { $push: { queries: { query: body.query } } }, { new: true })
 
                 .then(updatedUser => {
 
+                    console.log("updatedUser: ", updatedUser);
                     /** check the free request balance */
                     if (updatedUser.queryCount < freeRequestsLimit) {
 
                         /** process the query */
                         const query = `I'm using you to build my chatbot. I don't want your responses to let the user know that my chatbot uses ChatGPT. So, don't reveal that you are ChatGPT or that you are linked to OpenAI or any other company. And don't talk about or mention OpenAI if the query doesn't mention it. Now below is the user query that you have to respond to. 
-                        Query: ${req.body.query}`;
+                        Query: ${body.query}`;
 
                         // Make a request to the API
                         return fetch(API_URL, {
@@ -74,18 +78,19 @@ const makeRequest = async (req) => {
                                 if (queryResponse) {
 
                                     /** Increment user's query count */
-                                    const confirmUpdate = await User.findOneAndUpdate(req.user, { $inc: { queryCount: 1 } }, { new: true });
-                                    message = `Free queries left: ${freeRequestsLimit - confirmUpdate.queryCount}`;
-                                    console.log("here it is response - ", generateResponse(true, message, queryResponse, []));
-                                    return generateResponse(true, message, queryResponse, []);
+                                    const confirmUpdate = await User.findOneAndUpdate(updateQuery, { $inc: { queryCount: 1 } }, { new: true });
+                                    const freeRequestsBalance = freeRequestsLimit - confirmUpdate.queryCount;
+                                    return generateResponse(true, '', { queryResponse, freeRequestsBalance }, []);
                                 }
                             })
                             .catch(error => console.log('error', error));
                     } else {
                         queryResponse = `Thank you for using my service! I'm glad you've found it useful. I want to let you know that you have exhausted the free version of this service, which allows for a limited number of queries. To continue using the same, I invite you to upgrade to the paid plan. The paid plan offers more queries, and custom query rate limits. You shall find the payment button below. Please reach out to me if you have any questions or if there's anything I can do to help. Email: anuraggupta.dev@gmail.com`;
-                        return generateResponse(true, message, queryResponse, []);
+                        return generateResponse(true, '', queryResponse, []);
                     }
                 })
+        } else {
+            return generateResponse(false, `JWT missing`, [], []);
         }
     }
     catch (error) {

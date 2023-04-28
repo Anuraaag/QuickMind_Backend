@@ -66,7 +66,7 @@ const createUser = async (req) => {
             //     },
             //     body: generateResponse(true, `User signed up successfully`, [], [])
             // };
-            return generateResponse(true, `User signed up successfully`, { jwtToken, username, freeRequestsLimit }, []);
+            return generateResponse(true, `User signed up successfully`, { jwtToken, username, freeRequestsBalance: freeRequestsLimit }, []);
         }
     } catch (error) {
         console.log(error);
