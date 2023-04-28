@@ -26,27 +26,23 @@ const makeRequest = async (req) => {
         const userId = req.user && req.user.id ? req.user.id : null;
         const updateQuery = userId ? { _id: new ObjectId(`${userId}`) } : null;
 
-        console.log("myQuery: ", updateQuery);
-
         let queryResponse = ``;
 
         if (body && updateQuery) {
 
-            if (body.query) {
+            if (body.query)
                 body.query = xss(body.query);
-            } else {
+            else
                 return generateResponse(false, `Your query is empty, I can't understand your silence...`)
-            }
-            if (body.query.length > 2400) {
+
+            if (body.query.length > 2400)
                 return generateResponse(false, `Oh that was a lot. Tell me in short please!`)
-            }
 
             /** Push the query to the db */
             return User.findOneAndUpdate(updateQuery, { $push: { queries: { query: body.query } } }, { new: true })
 
                 .then(updatedUser => {
 
-                    console.log("updatedUser: ", updatedUser);
                     /** check the free request balance */
                     if (updatedUser.queryCount < freeRequestsLimit) {
 
@@ -68,30 +64,29 @@ const makeRequest = async (req) => {
                                 'prompt': query
                             }),
                         })
-                            .then(response => {
-                                return response = response.json();
-                            })
+                            .then(response => response.json())
                             .then(async (queryResponse) => {
 
                                 queryResponse = queryResponse.choices[0].text;
 
                                 if (queryResponse) {
-
                                     /** Increment user's query count */
                                     const confirmUpdate = await User.findOneAndUpdate(updateQuery, { $inc: { queryCount: 1 } }, { new: true });
                                     const freeRequestsBalance = freeRequestsLimit - confirmUpdate.queryCount;
                                     return generateResponse(true, '', { queryResponse, freeRequestsBalance }, []);
                                 }
                             })
-                            .catch(error => console.log('error', error));
+                            .catch(error => generateResponse(false, `Internal Server Error`, [], error))
+
                     } else {
                         queryResponse = `Thank you for using my service! I'm glad you've found it useful. I want to let you know that you have exhausted the free version of this service, which allows for a limited number of queries. To continue using the same, I invite you to upgrade to the paid plan. The paid plan offers more queries, and custom query rate limits. You shall find the payment button below. Please reach out to me if you have any questions or if there's anything I can do to help. Email: anuraggupta.dev@gmail.com`;
                         return generateResponse(true, '', queryResponse, []);
                     }
                 })
-        } else {
+                .catch(error => generateResponse(false, `Internal Server Error`, [], error))
+
+        } else
             return generateResponse(false, `JWT missing`, [], []);
-        }
     }
     catch (error) {
         console.log(error);

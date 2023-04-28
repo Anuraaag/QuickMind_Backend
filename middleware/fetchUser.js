@@ -13,9 +13,10 @@ const fetchUser = req => {
         if (req.headers && req.headers.qm_token) {
 
             const JWT = req.headers.qm_token;
-            if (!JWT) {
+            if (!JWT)
                 return generateResponse(false, `JWT missing`, [], []);
-            } else {
+
+            else {
                 const payload = jwt.verify(JWT, JWT_SECRET);
                 return payload.user;
             }
@@ -23,7 +24,7 @@ const fetchUser = req => {
         return generateResponse(false, `JWT missing`, [], []);
 
     } catch (error) {
-        return generateResponse(false, `JWT missing`, [], []);
+        return generateResponse(false, `JWT missing`, [], error);
     }
 
 }

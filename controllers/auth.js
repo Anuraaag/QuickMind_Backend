@@ -1,7 +1,6 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require("jsonwebtoken");
-// const cookie = require('cookie');
 const freeRequestsLimit = 30;
 
 const generateResponse = require("../helpers/response");
@@ -51,21 +50,6 @@ const createUser = async (req) => {
             }
             const jwtToken = jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn });
 
-            /** Calculating a date 30 days from now to expire the cookie then */
-            // const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-            // const response = {
-            //     headers: {
-            //         'Access-Control-Allow-Origin': 'chrome-extension://akmkcicklllnibehnoeikjfihhlpcoio',
-            //         'Access-Control-Allow-Credentials': true,
-            //         'Set-Cookie': cookie.serialize('jwt_token', jwtToken, {
-            //             httpOnly: true,
-            //             secure: true,
-            //             sameSite: 'none',
-            //             expires: thirtyDaysFromNow
-            //         })
-            //     },
-            //     body: generateResponse(true, `User signed up successfully`, [], [])
-            // };
             return generateResponse(true, `User signed up successfully`, { jwtToken, username, freeRequestsBalance: freeRequestsLimit }, []);
         }
     } catch (error) {
@@ -74,11 +58,29 @@ const createUser = async (req) => {
     }
 };
 
-/** Logging in a user - /api/auth/log-in
- * first argument has the path,
- * second arg contains the rules, 
- * third implements the body
-*/
+
+const logInUser = async (req) => {
+
+    try {
+        const body = req.body ? JSON.parse(req.body) : null;
+
+        if (body) {
+
+            if (!body.email || !/\S+@\S+\.\S+/.test(body.email) || body.email.length > 256)
+                return generateResponse(false, `Enter valid credentials`, [], []);
+
+            if (!body.password || body.password.length < 5 || body.password.length > 127)
+                return generateResponse(false, `Enter valid credentials`, [], []);
+
+
+        }
+
+    } catch (error) {
+
+    }
+}
+
+
 // router.post('/log-in', [
 //     body('email', 'Enter a valid email').isEmail().isLength({ max: 256 }),
 //     body('password', 'Password can not be blank').isLength({ min: 4 }).isLength({ max: 127 })
@@ -121,4 +123,4 @@ const createUser = async (req) => {
 //     }
 // });
 
-module.exports = { createUser };
+module.exports = { createUser, logInUser };
