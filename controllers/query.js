@@ -79,8 +79,8 @@ const makeRequest = async (req) => {
                             .catch(error => generateResponse(false, `Internal Server Error`, [], error))
 
                     } else {
-                        queryResponse = `Thank you for using my service! I'm glad you've found it useful. I want to let you know that you have exhausted the free version of this service, which allows for a limited number of queries. To continue using the same, I invite you to upgrade to the paid plan. The paid plan offers more queries, and custom query rate limits. You shall find the payment button below. Please reach out to me if you have any questions or if there's anything I can do to help. Email: anuraggupta.dev@gmail.com`;
-                        return generateResponse(true, '', queryResponse, []);
+                        queryResponse = `Thank you for using my service! I'm glad you've found it useful. I want to let you know that you have exhausted the free version of this service, which allows for a limited number of queries. To continue using this, I invite you to upgrade to the paid plan. The premium version offers both fixed and custom plans. Click on Premium below to check the details. You may reach out to me at [Email: anuraggupta.dev@gmail.com]`;
+                        return generateResponse(true, '', { queryResponse, freeRequestsBalance: 0 }, []);
                     }
                 })
                 .catch(error => generateResponse(false, `Internal Server Error`, [], error))
