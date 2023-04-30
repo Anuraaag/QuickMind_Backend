@@ -18,39 +18,53 @@ const createUser = async (req) => {
         if (body) {
 
             if (!body.name || body.name.length < 2 || body.name.length > 192)
-                return generateResponse(false, `Enter a valid name`, [], []);
+                return generateResponse(false, `Enter a valid name.`, [], []);
 
             if (!body.email || !/\S+@\S+\.\S+/.test(body.email) || body.email.length > 256)
-                return generateResponse(false, `Enter a valid email`, [], []);
+                return generateResponse(false, `Enter a valid email.`, [], []);
 
             if (!body.password || body.password.length < 5 || body.password.length > 127)
-                return generateResponse(false, `Password must be at least 5 characters`, [], []);
+                return generateResponse(false, `Password must be at least 5 characters.`, [], []);
 
             /** Checking if user already exists */
-            let user = await User.findOne({ email: body.email });
-            if (user)
-                return generateResponse(false, `Account with this email already exists`, [], []);
+            return User.findOne({ email: body.email })
+                .then(user => {
+                    if (user)
+                        return generateResponse(false, `Account with this email already exists.`, [], []);
+                    // add reset pasword functionality // ask if user wants to reset here, suggest to use forgot password functionality
 
-            /** Creating user */
-            const salt = await bcrypt.genSalt();
-            const hash = await bcrypt.hash(body.password, salt);
-            const username = body.name.split(" ")[0] !== "" ? body.name.split(" ")[0] : "user";
-            user = await User.create({
-                name: body.name,
-                email: body.email,
-                password_hash: hash,
-                username: username
-            });
+                    /** Initiate creating user */
+                    return bcrypt.genSalt(); // generate salt
+                })
+                .then(salt => bcrypt.hash(body.password, salt)) // generate hash
+                .then(hash => {
 
-            /** User completes registration, so we create and send them a JWT token */
-            const payload = {
-                user: {
-                    id: user.id
-                }
-            }
-            const jwtToken = jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn });
+                    let username = body.name.split(" ")[0] !== "" ? body.name.split(" ")[0] : "user";
+                    username = username.charAt(0).toUpperCase() + username.slice(1);
 
-            return generateResponse(true, `User signed up successfully`, { jwtToken, username, freeRequestsBalance: freeRequestsLimit }, []);
+                    return User.create({
+                        name: body.name,
+                        email: body.email,
+                        password_hash: hash,
+                        username: username
+                    });
+                })
+                .then(addedUser => {
+
+                    if (addedUser) {
+                        /** User completes registration, so we create and send them a JWT token */
+                        const payload = {
+                            user: {
+                                id: addedUser.id
+                            }
+                        }
+                        const jwtToken = jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn });
+                        return generateResponse(true, `User signed up successfully`, { jwtToken, username: addedUser.username, freeRequestsBalance: freeRequestsLimit }, []);
+                    } else {
+                        return generateResponse(true, `User not created. Database issue`, {}, []);
+                    }
+                })
+                .catch(error => generateResponse(false, `Internal Server Error`, [], error))
         }
     } catch (error) {
         console.log(error);
@@ -67,60 +81,50 @@ const logInUser = async (req) => {
         if (body) {
 
             if (!body.email || !/\S+@\S+\.\S+/.test(body.email) || body.email.length > 256)
-                return generateResponse(false, `Enter valid credentials`, [], []);
+                return generateResponse(false, `Enter valid credentials.`, [], []);
 
             if (!body.password || body.password.length < 5 || body.password.length > 127)
-                return generateResponse(false, `Enter valid credentials`, [], []);
+                return generateResponse(false, `Enter valid credentials.`, [], []);
 
+            return User.findOne({ email: body.email })
+                .then(user => {
+                    if (!user) {
+                        return generateResponse(false, `Enter valid credentials.`, [], []);
+                    }
 
+                    /** Verifying password */
+                    return { passwordMatched: bcrypt.compare(body.password, user.password_hash), user };
+                })
+                .then(result => {
+
+                    if (result) {
+
+                        if (!result.passwordMatched) {
+                            return generateResponse(false, `Enter valid credentials.`, [], []);
+                        }
+
+                        /** User is authenticated. Create and send JWT token */
+                        const user = result.user;
+                        const payload = {
+                            user: {
+                                id: user.id
+                            }
+                        };
+                        const jwtToken = jwt.sign(payload, JWT_SECRET);
+                        return generateResponse(true, `User logged in successfully!`, { jwtToken, username: user.username, freeRequestsBalance: freeRequestsLimit - user.queryCount }, []);
+
+                    } else {
+                        return generateResponse(false, `Enter valid credentials.`, [], []);
+                    }
+                })
+                .catch(error => generateResponse(false, `Internal Server Error`, [], error))
         }
 
     } catch (error) {
-
+        console.log(error);
+        return generateResponse(false, `Internal Server Error`, [], error);
     }
 }
 
-
-// router.post('/log-in', [
-//     body('email', 'Enter a valid email').isEmail().isLength({ max: 256 }),
-//     body('password', 'Password can not be blank').isLength({ min: 4 }).isLength({ max: 127 })
-// ], async (req, res) => {
-//     try {
-//         //Checking for error based on aforementioned rules
-//         const errors = validationResult(req);
-//         if (!errors.isEmpty()) {
-//             return res.status(400).json(generateResponse(false, errors.array()[0].msg, [], errors.array()));
-//         }
-
-//         //Checking if user exists
-//         let user = await User.findOne({ email: req.body.email }); // db crud is async
-//         if (!user) {
-//             return res.status(400).json(generateResponse(false, `Please enter your correct credentials`, [], []));
-//         }
-
-//         //Verifying password
-//         const passwordCompare = await bcrypt.compare(req.body.password, user.password_hash);
-//         if (!passwordCompare) {
-//             return res.status(400).json(generateResponse(false, `Please enter your correct credentials`, [], []));
-//         }
-
-//         // User is authenticated already, so we create and send them a JWT token
-//         const payload = {
-//             user: {
-//                 id: user.id
-//             }
-//         };
-
-//         /** Calculating a date 30 days from now to expire the cookie then */
-//         const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-//         const jwtToken = jwt.sign(payload, JWT_SECRET);
-
-//         res.cookie('jwt_token', jwtToken, { httpOnly: true, expires: thirtyDaysFromNow, sameSite: "None", secure: "true" }).json(generateResponse(true, `logged in successfully`, [], []));
-
-//     } catch (error) {
-//         console.log(error);
-//         res.status(500).send(generateResponse(false, `Internal Server Error`, [], []));
-//     }
-// });
 
 module.exports = { createUser, logInUser };

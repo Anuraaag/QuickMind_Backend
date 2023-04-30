@@ -32,7 +32,6 @@ module.exports.signupHandler = async (req) => {
     };
 
   return createUser(req)
-    .then(response => response)
     .catch(error => generateResponse(false, `Internal Server Error`, [], error))
 };
 
@@ -53,7 +52,6 @@ module.exports.loginHandler = async (req) => {
     };
 
   return logInUser(req)
-    .then(response => response)
     .catch(error => generateResponse(false, `Internal Server Error`, [], error))
 };
 
@@ -78,7 +76,6 @@ module.exports.queryHandler = async (req) => {
 
   if (req.user && req.user.id) {
     return makeRequest(req)
-      .then(response => response)
       .catch(error => generateResponse(false, `Internal Server Error`, [], error))
   }
   else
