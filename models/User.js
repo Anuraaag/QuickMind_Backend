@@ -52,6 +52,10 @@ const UserSchema = new Schema({
         type: String,
         enum: Object.values(UserTypes),
         default: UserTypes.FREE
+    },
+    verified: {
+        type: Boolean,
+        default: false
     }
 });
 

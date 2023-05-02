@@ -32,7 +32,7 @@ module.exports.signupHandler = async (req) => {
     };
 
   return createUser(req)
-    .catch(error => generateResponse(false, `Internal Server Error`, [], error))
+    .catch(error => generateResponse(false, error.message, [], error))
 };
 
 module.exports.loginHandler = async (req) => {
@@ -52,7 +52,7 @@ module.exports.loginHandler = async (req) => {
     };
 
   return logInUser(req)
-    .catch(error => generateResponse(false, `Internal Server Error`, [], error))
+    .catch(error => generateResponse(false, error.message, [], error))
 };
 
 module.exports.queryHandler = async (req) => {
@@ -76,7 +76,7 @@ module.exports.queryHandler = async (req) => {
 
   if (req.user && req.user.id) {
     return makeRequest(req)
-      .catch(error => generateResponse(false, `Internal Server Error`, [], error))
+      .catch(error => generateResponse(false, error.message, [], error))
   }
   else
     return req.user; /** it's the error response from fetchUser and not the 'user' in this case */

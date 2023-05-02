@@ -1,4 +1,4 @@
-const generateResponse = (success = false, message = ``, data = [], error = []) => {
+const generateResponse = (success = false, message = ``, data = [], error = {}) => {
     const response = {
         'success': success,
         'payload': {

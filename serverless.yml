@@ -8,6 +8,7 @@ provider:
   name: aws
   runtime: nodejs18.x
   httpApi:
+    # cors: true
     cors:
       # allowedOrigins:  chrome-extension://akmkcicklllnibehnoeikjfihhlpcoio
       allowedHeaders:
