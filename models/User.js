@@ -56,6 +56,10 @@ const UserSchema = new Schema({
     verified: {
         type: Boolean,
         default: false
+    },
+    reset_code: {
+        type: String,
+        default: null
     }
 });
 

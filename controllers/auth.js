@@ -11,6 +11,10 @@ dotenv.config();
 const JWT_SECRET = `${process.env.JWT_SECRET}`;
 const expiresIn = '10d';
 
+const AWS = require('aws-sdk');
+AWS.config.update({ region: 'us-east-1' });
+const ses = new AWS.SES();
+
 const createUser = async (req) => {
     try {
 
@@ -32,10 +36,10 @@ const createUser = async (req) => {
                     if (user)
                         throw new Error("Account with this email already exists.");
                     // add reset pasword functionality // ask if user wants to reset here, suggest to use forgot password functionality
-
-                    /** Initiate creating user */
-                    return bcrypt.genSalt(); /** generate salt */
                 })
+                /** Initiate creating user */
+                .then(() => bcrypt.genSalt()) /** generate and return salt */
+
                 .then(salt => {
                     if (salt)
                         return bcrypt.hash(body.password, salt);
@@ -47,26 +51,35 @@ const createUser = async (req) => {
                     if (hash) {
                         let username = body.name.split(" ")[0] !== "" ? body.name.split(" ")[0] : "user";
                         username = username.charAt(0).toUpperCase() + username.slice(1);
+                        // const reset_code = Math.random().toString(16).substring(0, 6);
                         return User.create({
-                            name: body.name, email: body.email, password_hash: hash, username: username
+                            name: body.name,
+                            email: body.email,
+                            password_hash: hash,
+                            username: username
                         });
                     } else
                         throw new Error("Hash creation failed.");
 
                 })
-                .then(addedUser => {
-
+                .then(async addedUser => {
                     if (addedUser) {
-                        /** User completes registration, so we create and send them a JWT token */
-                        const payload = {
-                            user: {
-                                id: addedUser.id
-                            }
-                        };
-                        const jwtToken = jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn });
-                        return generateResponse(true, `User signed up successfully`, { jwtToken, username: addedUser.username, freeRequestsBalance: freeRequestsLimit }, []);
+                        return new Promise((resolve, reject) => {
+                            /** sending verification email */
+                            ses.verifyEmailAddress({ EmailAddress: addedUser.email }, (err, data) => {
+                                if (err)
+                                    throw new Error("Email verification mail failed. " + err);
+                                else
+                                    resolve(addedUser);
+                            });
+                        })
+                            .catch(error => generateResponse(false, error.message, [], error))
                     } else
                         throw new Error("User not created. Database issue.");
+                })
+                .then(addedUser => {
+                    console.log("reached signup success, here the added user: ", addedUser);
+                    return generateResponse(true, `User signed up successfully`, { username: addedUser.username }, []);
                 })
                 .catch(error => generateResponse(false, error.message, [], error))
 
@@ -102,20 +115,69 @@ const logInUser = async (req) => {
                     user = fetchedUser; /** user found */
                     return bcrypt.compare(body.password, user.password_hash); /** Verifying password */
                 })
-                .then(passwordMatched => {
-
+                .then(async passwordMatched => {
                     if (!passwordMatched)
                         throw new Error("Enter valid credentials.");
 
-                    /** User is authenticated. Create and send JWT token */
-                    const payload = {
-                        user: {
-                            id: user.id
-                        }
-                    };
-                    const jwtToken = jwt.sign(payload, JWT_SECRET);
-                    return generateResponse(true, `User logged in successfully!`, { jwtToken, username: user.username, freeRequestsBalance: freeRequestsLimit - user.queryCount }, []);
+                    /** User is authenticated. Check if the email is verified */
+                    return new Promise((resolve, reject) => {
+                        ses.listIdentities({ IdentityType: 'EmailAddress' }, (err, data) => {
+                            if (err)
+                                throw new Error("No identities found. " + err);
+                            else {
+                                const identities = data.Identities;
+                                resolve(identities);
+                            }
+                        });
+                    })
+                        .catch(error => generateResponse(false, error.message, [], error))
 
+                })
+                .then(async identities => {
+                    if (identities && identities.includes(user.email)) {
+
+                        return new Promise((resolve, reject) => {
+                            ses.getIdentityVerificationAttributes({ Identities: [user.email] }, (err, data) => {
+                                if (err)
+                                    throw new Error("No identity data found. " + err);
+                                else {
+                                    console.log("emailVerified status: ", data.VerificationAttributes[user.email].VerificationStatus);
+                                    console.log("typeof emailVerified status: ", typeof data.VerificationAttributes[user.email].VerificationStatus);
+                                    let emailVerified = false;
+
+                                    if (data && data.VerificationAttributes && data.VerificationAttributes[user.email] && data.VerificationAttributes[user.email].VerificationStatus && data.VerificationAttributes[user.email].VerificationStatus === `Success`) {
+                                        emailVerified = true;
+                                    }
+                                    resolve(emailVerified);
+                                }
+                            });
+                        })
+                            .catch(error => generateResponse(false, error.message, [], error))
+                    }
+                    else
+                        throw new Error("No identity data found!");
+                })
+                .then((emailVerified) => {
+
+                    console.log("emailVerified: ", emailVerified);
+                    const data = {
+                        username: user.username
+                    };
+                    if (emailVerified) {
+                        /** Create JWT token */
+                        const payload = {
+                            user: {
+                                id: user.id
+                            }
+                        };
+                        const jwtToken = jwt.sign(payload, JWT_SECRET);
+                        data.jwtToken = jwtToken;
+                        data.freeRequestsBalance = freeRequestsLimit - user.queryCount;
+
+                    } else
+                        data.verified = emailVerified;
+
+                    return generateResponse(true, `User logged in successfully!`, data, []);
                 })
                 .catch(error => generateResponse(false, error.message, [], error))
         } else
