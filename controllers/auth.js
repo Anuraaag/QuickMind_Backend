@@ -9,7 +9,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const JWT_SECRET = `${process.env.JWT_SECRET}`;
-const expiresIn = '10d';
+// const expiresIn = '10d';
 
 const AWS = require('aws-sdk');
 AWS.config.update({ region: 'us-east-1' });
@@ -22,19 +22,21 @@ const createUser = async (req) => {
         if (body) {
 
             if (!body.name || body.name.length < 2 || body.name.length > 192)
-                return generateResponse(false, `Enter a valid name.`, [], []);
+                return generateResponse(false, `Enter a valid name`, [], []);
 
             if (!body.email || !/\S+@\S+\.\S+/.test(body.email) || body.email.length > 256)
-                return generateResponse(false, `Enter a valid email.`, [], []);
+                return generateResponse(false, `Enter a valid email`, [], []);
+            else
+                body.email = body.email.toLowerCase();
 
             if (!body.password || body.password.length < 5 || body.password.length > 127)
-                return generateResponse(false, `Password must be at least 5 characters.`, [], []);
+                return generateResponse(false, `Password must be at least 5 characters`, [], []);
 
             /** Checking if user already exists */
             return User.findOne({ email: body.email })
                 .then(user => {
                     if (user)
-                        throw new Error("Account with this email already exists.");
+                        throw new Error("Account with this email already exists");
                     // add reset pasword functionality // ask if user wants to reset here, suggest to use forgot password functionality
                 })
                 /** Initiate creating user */
@@ -62,6 +64,40 @@ const createUser = async (req) => {
                         throw new Error("Hash creation failed.");
 
                 })
+                /** Work in progress start */
+                //1 check for a template
+
+                //2 if it doesn't exist, create it
+                // .then(async addedUser => {
+                //     if (addedUser) {
+                //         return new Promise((resolve, reject) => {
+                //             /** sending verification email */
+
+                //             const params = {
+                //                 FromEmailAddress: 'anuraggupta.dev@gmail.com',
+                //                 TemplateContent: '<html> <body> <p>Hi {{user}}!</p> <p>Please click the below link to verify your email address</p> <p> {{verifyLink}} </p> </body> </html>',
+                //                 TemplateName: 'Email-Verification',
+                //                 TemplateSubject: 'QuickMind - Email Verification',
+                //                 SuccessRedirectionURL: `https://example.com`,
+                //                 FailureRedirectionURL: `https://example.com`
+                //             }
+                //             ses.createCustomVerificationEmailTemplate(params, (err, data) => {
+                //                 if (err)
+                //                     throw new Error("Email template creation failed. " + err);
+                //                 else
+                //                     resolve(addedUser);
+                //             });
+                //         })
+                //             .catch(error => generateResponse(false, error.message, [], error))
+                //     } else
+                //         throw new Error("User not created. Database issue.");
+                // })
+                //3 use the template to send the verify-email-id email
+                /** Work in progress end */
+
+
+
+                // sending verify email-id email
                 .then(async addedUser => {
                     if (addedUser) {
                         return new Promise((resolve, reject) => {
@@ -78,8 +114,11 @@ const createUser = async (req) => {
                         throw new Error("User not created. Database issue.");
                 })
                 .then(addedUser => {
-                    console.log("reached signup success, here the added user: ", addedUser);
-                    return generateResponse(true, `User signed up successfully`, { username: addedUser.username }, []);
+                    console.log("reached signup success, here's the added user: ", addedUser);
+                    if (addedUser)
+                        return generateResponse(true, `User signed up successfully`, { username: addedUser.username }, []);
+                    else
+                        return generateResponse(false, `User sign up failed`, {}, []);
                 })
                 .catch(error => generateResponse(false, error.message, [], error))
 
@@ -102,6 +141,8 @@ const logInUser = async (req) => {
 
             if (!body.email || !/\S+@\S+\.\S+/.test(body.email) || body.email.length > 256)
                 return generateResponse(false, `Enter valid credentials.`, [], []);
+            else
+                body.email = body.email.toLowerCase();
 
             if (!body.password || body.password.length < 5 || body.password.length > 127)
                 return generateResponse(false, `Enter valid credentials.`, [], []);
@@ -119,43 +160,67 @@ const logInUser = async (req) => {
                     if (!passwordMatched)
                         throw new Error("Enter valid credentials.");
 
-                    /** User is authenticated. Check if the email is verified */
-                    return new Promise((resolve, reject) => {
-                        ses.listIdentities({ IdentityType: 'EmailAddress' }, (err, data) => {
-                            if (err)
-                                throw new Error("No identities found. " + err);
-                            else {
-                                const identities = data.Identities;
-                                resolve(identities);
-                            }
-                        });
-                    })
-                        .catch(error => generateResponse(false, error.message, [], error))
+                    /** User is authenticated. 
+                     * Check if the email is verified 
+                     * If user is verified, proceed to create jwt and provide access
+                     * If user not verified, then 1.) check aws-ses for the same and 2.) update the status in the db 
+                    */
+                    if (user.verified)
+                        return user.verified;
 
-                })
-                .then(async identities => {
-                    if (identities && identities.includes(user.email)) {
-
+                    else {
                         return new Promise((resolve, reject) => {
-                            ses.getIdentityVerificationAttributes({ Identities: [user.email] }, (err, data) => {
+                            ses.listIdentities({ IdentityType: 'EmailAddress' }, (err, data) => {
                                 if (err)
-                                    throw new Error("No identity data found. " + err);
+                                    throw new Error("No identities found. " + err);
                                 else {
-                                    console.log("emailVerified status: ", data.VerificationAttributes[user.email].VerificationStatus);
-                                    console.log("typeof emailVerified status: ", typeof data.VerificationAttributes[user.email].VerificationStatus);
-                                    let emailVerified = false;
-
-                                    if (data && data.VerificationAttributes && data.VerificationAttributes[user.email] && data.VerificationAttributes[user.email].VerificationStatus && data.VerificationAttributes[user.email].VerificationStatus === `Success`) {
-                                        emailVerified = true;
-                                    }
-                                    resolve(emailVerified);
+                                    const identities = data.Identities;
+                                    resolve(identities);
                                 }
                             });
                         })
+                            .then(async identities => {
+                                if (identities && identities.includes(user.email)) {
+
+                                    return new Promise((resolve, reject) => {
+                                        ses.getIdentityVerificationAttributes({ Identities: [user.email] }, (err, data) => {
+                                            if (err)
+                                                throw new Error("No identity data found. " + err);
+                                            else {
+                                                console.log("emailVerified status: ", data.VerificationAttributes[user.email].VerificationStatus);
+                                                console.log("typeof emailVerified status: ", typeof data.VerificationAttributes[user.email].VerificationStatus);
+                                                let emailVerified = false;
+
+                                                if (data && data.VerificationAttributes && data.VerificationAttributes[user.email] && data.VerificationAttributes[user.email].VerificationStatus && data.VerificationAttributes[user.email].VerificationStatus === `Success`)
+                                                    emailVerified = true;
+                                                else
+                                                    throw new Error("Please verify your email ID!");
+
+                                                resolve(emailVerified);
+                                            }
+                                        });
+                                    })
+                                        .catch(error => generateResponse(false, error.message, [], error))
+                                } else
+                                    throw new Error("No identity data found!");
+                            })
+                            .then((emailVerified) => {
+                                /** if email is verified, update it in db. If it is not verified, don't do anything */
+                                if (emailVerified) {
+                                    return User.findOneAndUpdate({ email: user.email }, { verified: true }, { new: true })
+                                        .then(updatedUser => {
+                                            if (updatedUser)
+                                                return updatedUser.verified;
+                                            else
+                                                throw new Error("Updating user's verify status failed!");
+                                        })
+                                        .catch(error => generateResponse(false, error.message, [], error))
+                                }
+                                else
+                                    return emailVerified; /** not verified */
+                            })
                             .catch(error => generateResponse(false, error.message, [], error))
                     }
-                    else
-                        throw new Error("No identity data found!");
                 })
                 .then((emailVerified) => {
 

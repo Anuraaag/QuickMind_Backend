@@ -17,6 +17,7 @@ const fetchUser = req => {
                 return generateResponse(false, `JWT missing`, [], []);
 
             else {
+                /** In case, a record is deleted from the db (say, manually), this will still interpret the data from the valid JWT */
                 const payload = jwt.verify(JWT, JWT_SECRET);
                 return payload.user;
             }
